@@ -57,7 +57,7 @@ main{max-width:1160px;margin:clamp(-90px,-8vw,-56px) auto 0;padding:0 16px 56px;
 .tile svg{width:52px;height:52px}
 .tile small{display:block;font-size:13px;color:var(--mute)}
 .tile strong{display:block;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.arrow{display:grid;place-items:center;color:var(--red)}
+.arrow{display:grid;place-items:center;color:var(--red);pointer-events:none}
 .arrow svg{width:40px;height:40px}
 .opts{display:grid;grid-template-columns:minmax(0,1fr) 56px minmax(0,1fr);gap:10px}
 .check{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--mute);margin-top:10px;cursor:pointer}
@@ -146,7 +146,7 @@ dialog::backdrop{background:rgba(10,10,12,.6);backdrop-filter:blur(4px)}
 #viewer button{background:#1d1d22;color:#f4f4f6;border-color:#33333a}
 #viewer button:hover:not(:disabled){border-color:#f4f4f6}
 @media(max-width:860px){.hero{grid-template-columns:minmax(0,1fr)}.sheet{transform:none;max-width:520px}.board{grid-template-columns:minmax(0,1fr)}}
-@media(max-width:640px){.flow,.opts{grid-template-columns:minmax(0,1fr)}.arrow{transform:rotate(90deg);height:40px}.opts .sp{display:none}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.support .in{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:640px){.flow,.opts{grid-template-columns:minmax(0,1fr)}.arrow{height:40px}.arrow svg{transform:rotate(90deg)}.opts .sp{display:none}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.support .in{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){.sheet .pick{animation:none;stroke-dashoffset:0}.bar i{transition:none}}
 </style>
 </head>
