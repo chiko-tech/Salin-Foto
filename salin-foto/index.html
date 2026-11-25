@@ -126,6 +126,25 @@ dialog::backdrop{background:rgba(10,10,12,.6);backdrop-filter:blur(4px)}
 .dlg img{width:100%;height:auto;border-radius:14px;display:block}
 .dlg .row{display:flex;justify-content:space-between;gap:10px}
 .dlg .hint{color:var(--mute);font-size:14px;margin:0}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:18px}
+.thumb{all:unset;box-sizing:border-box;cursor:pointer;display:block;border-radius:12px;overflow:hidden;background:var(--soft);border:1.5px solid var(--line);position:relative}
+.thumb:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+.thumb .ph{aspect-ratio:3/2;display:grid;place-items:center;background:light-dark(#ecebe8,#24242a);color:var(--mute);font-size:12px}
+.thumb img{display:block;width:100%;aspect-ratio:3/2;object-fit:cover;background:#111}
+.thumb figcaption{display:flex;justify-content:space-between;gap:6px;padding:7px 9px;font:600 13px ui-monospace,Menlo,monospace}
+.thumb figcaption span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thumb figcaption em{font:600 10px Inter,sans-serif;font-style:normal;padding:2px 6px;border-radius:5px;background:var(--ink);color:var(--paper);flex:none}
+.thumb.miss{cursor:default;border-color:var(--bad);background:var(--badBg);color:var(--bad)}
+.thumb.miss .ph{background:transparent;color:var(--bad);font-weight:600}
+#viewer{max-width:min(1100px,96vw);width:96vw;background:#0d0d10;color:#f4f4f6;padding:0}
+#viewer .vin{display:grid;grid-template-rows:minmax(0,1fr) auto;height:min(88vh,860px)}
+#viewer .stage{display:grid;place-items:center;min-height:0;padding:12px}
+#viewer .stage img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}
+#viewer .vbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-top:1px solid #26262c;flex-wrap:wrap}
+#viewer .vbar b{font:600 15px ui-monospace,Menlo,monospace}
+#viewer .vbar small{display:block;color:#a0a0aa;font-size:12px}
+#viewer button{background:#1d1d22;color:#f4f4f6;border-color:#33333a}
+#viewer button:hover:not(:disabled){border-color:#f4f4f6}
 @media(max-width:860px){.hero{grid-template-columns:minmax(0,1fr)}.sheet{transform:none;max-width:520px}.board{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:640px){.flow,.opts{grid-template-columns:minmax(0,1fr)}.arrow{transform:rotate(90deg);height:40px}.opts .sp{display:none}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.support .in{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){.sheet .pick{animation:none;stroke-dashoffset:0}.bar i{transition:none}}
@@ -196,6 +215,14 @@ dialog::backdrop{background:rgba(10,10,12,.6);backdrop-filter:blur(4px)}
     </section>
   </div>
 
+  <section class="panel" aria-labelledby="hPrev">
+    <div class="resultHead">
+      <div><h2 id="hPrev">Pratinjau foto pilihan</h2><p class="sub" id="prevText">Cek dulu foto yang dipilih klien sebelum disalin. Pilih folder asal dan tempel nomornya, lalu klik Tampilkan pratinjau.</p></div>
+      <button id="btnPrev" type="button">Tampilkan pratinjau</button>
+    </div>
+    <div class="thumbs" id="thumbs"></div>
+  </section>
+
   <section class="panel" aria-labelledby="hRes" aria-live="polite">
     <div class="resultHead">
       <div><h2 id="hRes">Hasil</h2><p class="sub" id="statusText">Belum ada proses. Nomor yang Anda tempel akan muncul di bawah.</p></div>
@@ -229,6 +256,16 @@ dialog::backdrop{background:rgba(10,10,12,.6);backdrop-filter:blur(4px)}
   </div>
 </section>
 <footer>Butuh Google Chrome atau Microsoft Edge versi terbaru di laptop/PC.<br>© 2026 DealerMac. Hak cipta dilindungi undang-undang. Dilarang menyalin, memperbanyak, atau mendistribusikan ulang kode dan tampilan alat ini tanpa izin tertulis.</footer>
+
+<dialog id="viewer" aria-label="Pratinjau besar">
+  <div class="vin">
+    <div class="stage"><img id="vImg" alt=""></div>
+    <div class="vbar">
+      <div><b id="vName"></b><small id="vInfo"></small></div>
+      <div style="display:flex;gap:8px"><button id="vPrev" type="button" aria-label="Foto sebelumnya">‹ Sebelumnya</button><button id="vNext" type="button" aria-label="Foto berikutnya">Berikutnya ›</button><button id="vClose" type="button">Tutup</button></div>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="kopiDlg" aria-label="QRIS dukungan">
   <div class="dlg">
@@ -345,6 +382,79 @@ $('btnRun').onclick=run;
 $('btnStop').onclick=()=>{stopFlag=true};
 $('saveLog').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([logLines.join('\r\n')],{type:'text/plain'}));a.download='riwayat-salin-foto-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.txt';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
 $('resetLog').onclick=()=>{logLines=[];$('log').textContent=''};
+
+
+/* ===== Pratinjau ===== */
+let prevItems=[],thumbQueue=[],thumbBusy=0,viewIdx=0,urls=[];
+const isRaw=e=>RAW.includes(e),isImg=e=>['jpg','jpeg','png'].includes(e);
+async function decodeTo(blob,w){
+  const bmp=await createImageBitmap(blob,{resizeWidth:w,resizeQuality:'medium',imageOrientation:'from-image'});
+  const c=document.createElement('canvas');c.width=bmp.width;c.height=bmp.height;c.getContext('2d').drawImage(bmp,0,0);bmp.close();
+  const out=await new Promise(r=>c.toBlob(r,'image/jpeg',.85));const u=URL.createObjectURL(out);urls.push(u);return {url:u,w:c.width,h:c.height};
+}
+async function rawPreview(file){
+  const buf=new Uint8Array(await file.slice(0,Math.min(file.size,120*1048576)).arrayBuffer());
+  const starts=[];
+  for(let i=0;i<buf.length-3;i++){if(buf[i]===0xFF&&buf[i+1]===0xD8&&buf[i+2]===0xFF){const m=buf[i+3];if(m===0xE0||m===0xE1||m===0xDB||m===0xC4||m===0xEE){starts.push(i);i+=3}}}
+  const segs=starts.map((st,k)=>({st,en:k+1<starts.length?starts[k+1]:buf.length})).sort((a,b)=>(b.en-b.st)-(a.en-a.st)).slice(0,5);
+  for(const sg of segs){try{const b=new Blob([buf.subarray(sg.st,sg.en)],{type:'image/jpeg'});await createImageBitmap(b);return b}catch(e){}}
+  return null;
+}
+async function sourceBlob(it){
+  if(it.img)return await it.img.getFile();
+  if(it.raw){const f=await it.raw.getFile();return await rawPreview(f)}
+  return null;
+}
+function pump(){
+  while(thumbBusy<2&&thumbQueue.length){
+    const it=thumbQueue.shift();thumbBusy++;
+    (async()=>{try{const b=await sourceBlob(it);if(!b)throw 0;const t=await decodeTo(b,420);it.thumb=t.url;const fig=document.querySelector(`[data-i="${it.i}"] .ph`);if(fig)fig.outerHTML=`<img src="${t.url}" alt="${esc(it.stem)}">`}
+      catch(e){const fig=document.querySelector(`[data-i="${it.i}"] .ph`);if(fig)fig.textContent='Pratinjau tidak tersedia'}
+      finally{thumbBusy--;pump()}})();
+  }
+}
+const io=new IntersectionObserver(es=>{for(const e of es)if(e.isIntersecting){io.unobserve(e.target);const it=prevItems[+e.target.dataset.i];if(it&&!it.miss){thumbQueue.push(it);pump()}}},{rootMargin:'300px'});
+async function preview(){
+  if(!src){$('prevText').textContent='Pilih folder asal dulu.';return}
+  const tokens=parseTokens();if(!tokens.length){$('prevText').textContent='Tempel dulu nomor pilihan klien.';$('names').focus();return}
+  if(await src.queryPermission({mode:'read'})!=='granted'&&await src.requestPermission({mode:'read'})!=='granted'){$('prevText').textContent='Izin membaca folder ditolak.';return}
+  $('btnPrev').disabled=true;$('prevText').textContent='Mencari foto…';
+  io.disconnect();thumbQueue=[];urls.forEach(u=>URL.revokeObjectURL(u));urls=[];
+  let files=[];try{files=await collect(src,$('recursive').checked,[])}catch(e){log('Gagal membaca folder: '+e.message)}
+  const byStem=new Map();
+  for(const f of files){
+    const dot=f.name.lastIndexOf('.');if(dot<1)continue;const ext=f.name.slice(dot+1).toLowerCase();if(!isRaw(ext)&&!isImg(ext))continue;
+    const stem=f.name.slice(0,dot);const low=stem.toLowerCase();const tk=tokens.find(t=>low===t||low.endsWith(t));if(!tk)continue;
+    const key=f.path.slice(0,f.path.length-f.name.length)+low;
+    const it=byStem.get(key)||{tk,stem,exts:[],img:null,raw:null};it.exts.push(ext.toUpperCase());
+    if(isImg(ext))it.img=f.h;else it.raw=it.raw||f.h;byStem.set(key,it);
+  }
+  prevItems=[];
+  for(const t of tokens){const g=[...byStem.values()].filter(x=>x.tk===t).sort((a,b)=>a.stem.localeCompare(b.stem));if(g.length)prevItems.push(...g);else prevItems.push({tk:t,stem:t,miss:true})}
+  prevItems.forEach((it,i)=>it.i=i);
+  $('thumbs').innerHTML=prevItems.map(it=>it.miss
+    ?`<figure class="thumb miss" data-i="${it.i}" style="margin:0"><div class="ph">Tidak ditemukan</div><figcaption><span>${esc(it.tk)}</span></figcaption></figure>`
+    :`<button class="thumb" type="button" data-i="${it.i}" title="${esc(it.stem)}"><figure style="margin:0"><div class="ph">Memuat…</div><figcaption><span>${esc(it.stem)}</span><em>${esc([...new Set(it.exts)].join('+'))}</em></figcaption></figure></button>`).join('');
+  document.querySelectorAll('#thumbs [data-i]').forEach(el=>io.observe(el));
+  const found=prevItems.filter(x=>!x.miss).length,miss=prevItems.length-found;
+  $('prevText').textContent=`${found} foto ditemukan${miss?`, ${miss} nomor tidak ditemukan`:''}. Klik foto untuk melihat lebih besar.`;
+  $('btnPrev').disabled=false;
+}
+$('btnPrev').onclick=preview;
+$('thumbs').addEventListener('click',e=>{const b=e.target.closest('button.thumb');if(b)openView(+b.dataset.i)});
+const viewer=$('viewer');
+async function openView(i){
+  const list=prevItems.filter(x=>!x.miss);if(!list.length)return;
+  let k=list.findIndex(x=>x.i===i);if(k<0)k=0;viewIdx=k;const it=list[k];
+  $('vName').textContent=it.stem;$('vInfo').textContent=`${[...new Set(it.exts)].join(' + ')} · ${k+1} dari ${list.length}`+(it.img?'':' · pratinjau dari file RAW');
+  $('vImg').src=it.thumb||'';$('vImg').alt=it.stem;
+  if(!viewer.open)viewer.showModal();
+  try{if(!it.big){const b=await sourceBlob(it);if(b)it.big=(await decodeTo(b,1800)).url}if(viewIdx===k&&it.big)$('vImg').src=it.big}catch(e){}
+}
+function step(d){const list=prevItems.filter(x=>!x.miss);if(!list.length)return;const k=(viewIdx+d+list.length)%list.length;openView(list[k].i)}
+$('vPrev').onclick=()=>step(-1);$('vNext').onclick=()=>step(1);$('vClose').onclick=()=>viewer.close();
+viewer.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')step(-1);if(e.key==='ArrowRight')step(1)});
+viewer.addEventListener('click',e=>{if(e.target===viewer)viewer.close()});
 
 const dlg=$('kopiDlg');
 document.querySelectorAll('[data-kopi]').forEach(b=>b.onclick=()=>{if(dlg.showModal)dlg.showModal();else dlg.setAttribute('open','')});
