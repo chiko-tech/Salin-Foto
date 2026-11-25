@@ -22,3 +22,7 @@ git commit -am "Update seleksi" && git push
 ```
 
 Salin Foto bisa diisi otomatis dari hasil pilihan klien: `/salin-foto/#nama=IMG_1001%20IMG_1002`.
+
+## Hak cipta
+
+© 2026 DealerMac. Seluruh hak dilindungi undang-undang. Lihat [LICENSE](LICENSE).
