@@ -345,5 +345,11 @@ dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close()});
 log('Siap.');
 }
 </script>
+<script>
+/* Isi otomatis dari DealerMac Pilih: /salin-foto/#nama=IMG_1001%20IMG_1002 */
+(function(){var m=location.hash.match(/^#nama=(.*)$/);if(!m)return;var t=document.getElementById('names');if(!t)return;
+try{t.value=decodeURIComponent(m[1]).split(/[\s,]+/).filter(Boolean).join('\n');t.dispatchEvent(new Event('input'));}catch(e){}
+history.replaceState(null,'',location.pathname);})();
+</script>
 </body>
 </html>
